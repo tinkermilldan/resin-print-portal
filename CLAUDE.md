@@ -12,7 +12,7 @@ in Kubernetes (Helm chart under `deploy/helm/`, Postgres on a PVC). The portal
 owns resin-printer certification, print-job tracking, the safety checklist, the
 audit log, and Slack posting; a background worker syncs membership status
 (A/I/S) from TinkerAccess's `get_users` endpoint
-(`docs/GET_MEMBERS_ENDPOINT.md`). Members identify themselves by **tapping their
+(`docs/reference/tinkeraccess-get-users.md`). Members identify themselves by **tapping their
 RFID fob** — the UID is matched against `members.code` from the synced roster
 (the portal also still accepts a Slack name from other callers, but the Pi is
 fob-only). The old per-Pi Flask app (`printer-upload/`) has been removed.
@@ -168,10 +168,9 @@ unlike the fob reader, which still refuses to start without working hardware.
 - **2026-08-23 fleet decision**: every *new* Pi is a **Zero W** (original,
   ARMv6, single micro-USB port), not Zero 2 W — cost savings. The first Pi
   (`resin`, serving the M7 Pro, everything documented below) stays a Zero 2
-  W; that history isn't affected. See `docs/second-pi-setup.md` for the
-  Zero W runbook, now driven by `provisioning/provision-sd.sh` for
-  unattended flash-and-boot setup (NOT YET hardware-verified — see that
-  doc's status note).
+  W; that history isn't affected. See `docs/pi-provisioning.md` for the
+  Zero W runbook, driven by `provisioning/provision-sd.sh` for unattended
+  flash-and-boot setup (how the `resin1` test rig is built).
 - First Pi (`resin`) is a Zero 2 W (RP3A0 chipset). Use the INNER micro-USB
   port labelled `USB` (OTG/data), NOT the outer `PWR` port (no data lines on
   any Zero).
@@ -183,9 +182,20 @@ unlike the fob reader, which still refuses to start without working hardware.
 
 ## Build, test, and deploy
 
-The central portal is Go (`cmd/portal`, `cmd/pi-agent`). Needs Go 1.24+ and
-Docker for a throwaway Postgres. See README.md for the full walkthrough; the
-short version, from the repo root:
+The central portal is Go (`cmd/portal`, `cmd/pi-agent`). Linux-only dev;
+needs Go 1.26+ and Docker for a throwaway Postgres (`make deps` checks).
+
+**Docs map (2026-10-13 cleanup)** — operator/developer docs live in `docs/`,
+one guide per audience: `development.md` (build, local stack with
+`fake-tinkeraccess` + `scripts/simulate-tap.sh` standing in for a Pi, tests),
+`deployment.md` (image, Helm, fleet updates, ops), `pi-provisioning.md`
+(`provision-sd.sh`, approval, troubleshooting), `hardware.md` (BOM, wiring,
+printers), `configuration.md` (every env var / Helm value). TinkerAccess API
+notes are in `docs/reference/`; the Flask-era roadmap is in `docs/archive/`.
+Keep new docs in that structure rather than adding one-off files, and keep
+this file for agent context/history, not operator instructions.
+
+The short version, from the repo root:
 
 ```bash
 make run-db              # local Postgres on :55432
@@ -208,7 +218,7 @@ default; `postgresql.enabled=false` + `externalDatabase.dsn` to bring your own.
 ### Deploy — Pi agent
 Fresh SD card is the normal path: `make pi-agent`, set `CENTRAL_URL` once in
 `provisioning/fleet.env` (an `ENROLL_TOKEN` there is optional), then
-`provisioning/provision-sd.sh` (see `docs/second-pi-setup.md`). The Pi
+`provisioning/provision-sd.sh` (see `docs/pi-provisioning.md`). The Pi
 self-registers on first boot; approve it once in the admin UI under
 Printers → Pending. Nothing is configured per Pi.
 

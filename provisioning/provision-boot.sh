@@ -45,8 +45,7 @@ echo "--- trimming background services (best-effort, single-core Zero W) ---"
 # avahi-daemon (mDNS/.local) deliberately NOT disabled here — it's unrelated
 # to whether <hostname>.lan resolves (that's the router registering the
 # DHCP-supplied hostname into its own local DNS, a separate mechanism this
-# Pi doesn't control) but it's a real, working fallback for any client that
-# isn't WSL2 (which famously can't resolve .local at all — see CLAUDE.md).
+# Pi doesn't control) but it's a working fallback for any client with mDNS.
 for svc in bluetooth hciuart triggerhappy; do
     systemctl disable --now "$svc" 2>/dev/null || true
 done
@@ -116,13 +115,12 @@ if install_agent; then
     checkpoint "pi-agent-installed"
     rm -rf "$BOOT/payload/agent"
     if [ "$NETWORK_OK" -ne 1 ]; then
-        echo "!!! No working network — pi-agent is installed but can't reach" \
-             "the central portal yet. Fix networking, then edit" \
-             "/etc/resin-pi-agent.env and 'systemctl restart resin-pi-agent'." >&2
+        echo "!!! No working network — pi-agent is installed and will keep" \
+             "retrying registration, but can't reach the portal. If Wi-Fi" \
+             "never comes up, check the SSID/password/country and reflash." >&2
     else
-        echo "pi-agent installed. Edit /etc/resin-pi-agent.env with this" \
-             "printer's CENTRAL_BASE_URL / PRINTER_SLUG / PRINTER_API_KEY," \
-             "then 'systemctl restart resin-pi-agent'."
+        echo "pi-agent installed. After the reboot below it registers with" \
+             "the portal; approve it there under Printers → Pending approval."
     fi
 else
     checkpoint "pi-agent-install-failed"

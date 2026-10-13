@@ -6,7 +6,7 @@ resin-portal {{ .Chart.AppVersion }} installed as {{ .Release.Name }}.
 2. The roster-sync worker pulls TinkerAccess every {{ .Values.sync.interval }}:
      kubectl logs -l app.kubernetes.io/instance={{ .Release.Name }},app.kubernetes.io/component=worker -f
    If it logs a 404 for get_users, the Leptos hash changed — recover the path per
-   docs/GET_MEMBERS_ENDPOINT.md and set tinkerAccess.getUsersPath.
+   docs/reference/tinkeraccess-get-users.md and set tinkerAccess.getUsersPath.
 
 {{- if not .Values.ingress.enabled }}
 

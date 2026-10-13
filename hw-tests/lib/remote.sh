@@ -36,7 +36,7 @@ remote_setup() {
         echo "ERROR: could not open SSH connection to $HWTEST_SSH_USER@$HWTEST_HOST" >&2
         return 1
     }
-    read -r -s -p "sudo password for $HWTEST_SSH_USER@$HWTEST_HOST (same as the login password, per docs/second-pi-setup.md): " HWTEST_SUDO_PW
+    read -r -s -p "sudo password for $HWTEST_SSH_USER@$HWTEST_HOST (same as the login password, per docs/pi-provisioning.md): " HWTEST_SUDO_PW
     echo
 }
 

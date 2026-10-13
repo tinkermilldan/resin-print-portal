@@ -18,8 +18,9 @@
 # automatic reboot at the end (see provision-boot.sh) to load the new
 # config.txt dtoverlay.
 #
-# NOT YET HARDWARE-VERIFIED end-to-end — do one test card before trusting
-# this for the whole fleet. See docs/second-pi-setup.md.
+# This is how the resin1 test rig is built. After changing anything here,
+# bring up one test card before flashing the fleet. Operator guide:
+# docs/pi-provisioning.md.
 #
 # The portal URL is the same on every card. Put it in provisioning/fleet.env
 # once (see fleet.env.example) — then you only pass the per-card
@@ -248,8 +249,7 @@ echo "--- writing cloud-init user-data / network-config / meta-data ---"
 # using it, and needed a fragile stage1-reboot-stage2 dance to get app
 # deployment after real networking came up. cloud-init already sequences
 # that correctly on its own (network-config applied before the interface
-# comes up; `runcmd` only runs once real networking is up) — see
-# docs/second-pi-setup.md for the history of why this changed.
+# comes up; `runcmd` only runs once real networking is up).
 yq() { printf '%s' "$1" | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g'; }
 
 cat > "$BOOT/user-data" <<EOF

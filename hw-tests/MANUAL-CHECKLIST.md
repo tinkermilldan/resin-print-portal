@@ -1,23 +1,19 @@
-# Manual / human-in-the-loop hardware checklist
+# Manual hardware checklist
 
-Layer 4 of `hw-tests/` (see `README.md` for the full picture). Everything
-here needs either eyes on a printer's screen or a physical action (power
-cycle, cable pull) that an SSH session can't script on itself. Run through
-this on `resin1` after any change to `usb-refresh.sh`, the gadget config, the
-pi-agent, or the print-job lifecycle in the central portal — and periodically
-regardless, since firmware/behavior can drift per printer without any code
-change here.
-
-Working style note (from `CLAUDE.md`): you're watching the printer screen,
-Claude Code is driving the Pi — one step at a time, confirm before the next.
+Layer 4 of the [on-hardware tests](README.md). Everything here needs eyes on a
+printer's screen or a physical action (a power cut, a cable pull) that a
+script can't do. Run it on `resin1` after any change to `usb-refresh.sh`, the
+gadget configuration, the agent, or the print-job lifecycle, and periodically
+regardless, since printer firmware behaviour can change without any change
+here. It's easiest with two people: one at the printer, one at a terminal.
 
 ## 1. File actually shows up and opens, per printer model
 
 The automated Layer 2 test (`test-full-flow-against-pi.sh`) only proves the file
 is byte-correct *on the FAT32 filesystem the gadget presents*. It cannot
 prove a given printer's firmware actually lists it, previews it, or opens it
-— that's model-specific and has bitten this project before (see `CLAUDE.md`'s
-whole M7 Pro saga). Repeat per printer currently on hand:
+— that's model-specific, and the M7 Pro in particular has a strict USB
+firmware. Repeat per printer currently on hand:
 
 | Printer | Format | Shows in browser? | Opens/previews OK? | Notes |
 |---|---|---|---|---|
@@ -27,21 +23,18 @@ whole M7 Pro saga). Repeat per printer currently on hand:
 
 ## 2. Full print-to-completion, at least once per printer
 
-Per `CLAUDE.md`, "shows in browser" and "opens" have been confirmed on all
-three printers, but an actual **full print run to completion** has not.
-Combine this with the new self-report flow:
-1. Start a real print through the portal (real checklist, real file).
+Listing and opening files has been confirmed on all three printers; a **full
+print run to completion** has not yet been recorded for any of them.
+1. Upload a real file through the portal and tap to load it.
 2. Let it run to completion on the physical printer.
-3. Click "I've removed it — mark finished" in the portal.
+3. On the Pi's status page (`http://resin1.lan/`), click **I've removed my
+   print — mark finished**.
 4. Confirm the drive is now empty (unplug/replug a laptop into the Pi's port
    if you want to see it as a generic USB drive, or just trust
    `test-full-flow-against-pi.sh`'s own verification method).
 
-## 3. Reboot recovery (hardware-verifies the still-unconfirmed provisioning path)
+## 3. Reboot recovery
 
-`docs/second-pi-setup.md` and `provisioning/provision-sd.sh` are explicitly
-flagged **NOT YET HARDWARE-VERIFIED**. Running this on `resin1` is the
-verification:
 ```bash
 ssh captain@resin1.lan
 sudo reboot
@@ -50,13 +43,11 @@ ssh captain@resin1.lan 'systemctl is-active piusb-gadget resin-pi-agent; lsmod |
 curl -s -o /dev/null -w '%{http_code}\n' http://resin1.lan/
 ```
 Expect: both units `active`, `g_mass_storage` loaded, HTTP `200`/`302` —
-all without touching anything by hand. If this passes, update the
-"NOT YET HARDWARE-VERIFIED" notes in `docs/second-pi-setup.md` /
-`provisioning/provision-sd.sh` to say so.
+all without touching anything by hand.
 
 ## 4. Real power-cycle resilience (this is not optional — it's normal operation)
 
-Per `CLAUDE.md`: **the Pi draws its power from the printer's own USB port.**
+**The Pi draws its power from the printer's own USB port.**
 There is no separate power switch and no graceful-shutdown path in normal
 use — every time someone flips the printer off at the end of the day, the
 Pi's SD card gets a hard power cut, same as yanking power on any Linux box.
@@ -69,8 +60,8 @@ deliberately rather than assuming it's fine:
    ssh captain@resin1.lan 'sudo fsck.fat -n /dev/<piusb-partition>'  # -n = check only, don't fix
    ssh captain@resin1.lan 'systemctl is-active piusb-gadget resin-pi-agent'
    ```
-   Expect: `fsck.fat` reports clean (or only trivial dirty-bit, per
-   `CLAUDE.md`'s known-harmless note), both services active, drive
+   Expect: `fsck.fat` reports clean (a set dirty bit alone is harmless),
+   both services active, drive
    reappears on the printer without any manual step.
 2. **Mid-refresh power cut** (the risky case): start a print (so
    `usb-refresh.sh` is actively unmounting/copying/remounting), and cut

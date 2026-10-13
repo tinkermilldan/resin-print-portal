@@ -18,7 +18,7 @@ worker:
     requests: { cpu: 50m, memory: 64Mi }
     limits:   { cpu: 250m, memory: 256Mi }
 
-# TinkerAccess get_users endpoint (see docs/GET_MEMBERS_ENDPOINT.md).
+# TinkerAccess get_users endpoint (see docs/reference/tinkeraccess-get-users.md).
 tinkerAccess:
   baseURL: "http://tinker-access.default.svc.cluster.local:3000"
   # Full path incl. the Leptos hash suffix. If it 404s, recover per the doc.

@@ -70,5 +70,6 @@ sysctl_ enable --now resin-pi-agent.service
 sysctl_ --no-pager --lines=0 status resin-pi-agent.service || true
 
 echo
-echo "Done. If PRINTER_API_KEY is still 'replace-me', edit /etc/resin-pi-agent.env"
-echo "then: sudo systemctl restart resin-pi-agent"
+echo "Done. The agent registers itself with the portal at CENTRAL_BASE_URL"
+echo "(/etc/resin-pi-agent.env); approve it under Printers -> Pending approval."
+echo "Follow it with: journalctl -u resin-pi-agent -f"

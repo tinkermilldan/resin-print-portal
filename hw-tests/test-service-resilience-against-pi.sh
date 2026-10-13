@@ -74,7 +74,7 @@ fi
 GADGET_WAS_LOADED=0
 remote_sudo "lsmod" | grep -q '^g_mass_storage' && GADGET_WAS_LOADED=1
 
-# --- Kill it hard, then poll for systemd's Restart=on-failure to bring it back
+# --- Kill it hard, then poll for systemd's Restart=always to bring it back
 remote_sudo "systemctl kill -s SIGKILL resin-pi-agent" >/dev/null 2>&1
 
 RECOVERED=0
@@ -87,7 +87,7 @@ for _ in $(seq 1 20); do   # up to 10s
 done
 
 if [ "$RECOVERED" = "1" ]; then
-    pass "systemd restarted resin-pi-agent.service after SIGKILL (Restart=on-failure honored)"
+    pass "systemd restarted resin-pi-agent.service after SIGKILL (Restart=always honored)"
 else
     fail "resin-pi-agent.service did NOT come back within 10s of being killed"
 fi

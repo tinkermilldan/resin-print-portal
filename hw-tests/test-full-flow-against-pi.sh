@@ -10,11 +10,11 @@
 # (curl); gadget verification uses only losetup/mount/modprobe, which
 # usb-refresh.sh already depends on in production. See hw-tests/lib/remote.sh.
 #
-# PREREQUISITES (set up once in the central portal admin UI):
-#   * a printer whose slug matches this Pi's PRINTER_SLUG
-#   * a member with a linked Slack name, certified for that printer
-#   * that printer's API key (only needed for the central-side assertions;
-#     the agent already has its own copy in /etc/resin-pi-agent.env)
+# PREREQUISITES (once, in the portal's admin UI -- see hw-tests/README.md):
+#   * this Pi approved under Printers (its slug is its hostname, e.g. resin1)
+#   * a test member certified for it, whose fob you have
+#   * the Pi's API key, for the portal-side assertions:
+#     ssh captain@resin1.lan sudo cat /var/lib/resin-pi-agent/creds.env
 #
 # WARNING: disconnects/reconnects the USB gadget several times and creates a
 # real print_jobs row + decision_log entries under the test member. Meant
@@ -23,7 +23,7 @@
 # Usage:
 #   bash hw-tests/test-full-flow-against-pi.sh \
 #     --host resin1.lan --central https://portal.tinkermill.org \
-#     --slug resin --api-key <printer key> --slack-name 'test.member' [--yes]
+#     --slug resin1 --api-key <printer key> --slack-name 'Test Member' [--yes]
 set -u
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -32,7 +32,7 @@ source "$HERE/lib/remote.sh"
 HOST=resin1.lan
 SSH_USER=captain
 CENTRAL=""
-SLUG=resin
+SLUG=resin1
 API_KEY=""
 SLACK_NAME=""
 YES=0

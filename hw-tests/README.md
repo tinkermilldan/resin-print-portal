@@ -1,150 +1,141 @@
-# On-hardware validation
+# On-hardware tests
 
-The Go unit/integration suite (`go test ./...`, plus the store/worker tests
-against a throwaway Postgres) needs no Pi and no real gadget. Everything in
-**this** directory does: a real Pi running `resin-pi-agent.service` and the
-real `g_mass_storage` gadget, talking to a reachable central portal.
+The Go test suites (`make test`, `make test-integration`) need no Pi. The tests
+here do: a real Pi running the agent and the real USB gadget, talking to a
+reachable portal. They're run by hand, never in CI.
 
-## Runs from your laptop, not the Pi
+## How they run
 
-Every script here (`*-against-pi.sh`) runs **on your dev machine** and drives
-the Pi over SSH — you never `ssh` in and run them there. This keeps the
-system under test unmodified:
+Every script runs **on your workstation** and drives the Pi over SSH. Nothing
+is installed on the Pi for testing, so the system under test stays exactly
+as provisioning built it:
 
-- Anything that needs extra tooling (building a FAT32 / MBR-partitioned
-  fixture image needs `mkdosfs`/`parted`/`losetup`; driving the agent and
-  portal over HTTP needs `curl`; the synthetic `.goo` fixture needs
-  `python3`) runs **on your laptop**.
-- Every command sent to the Pi uses only what the production deploy already
-  requires there: `losetup`/`mount`/`umount`/`modprobe`/`lsmod`/`dd`/
-  `sha256sum` (`usb-refresh.sh` already depends on all of these) and
-  `systemctl` (needed for the two systemd units to run at all). No Python,
-  no `sqlite3`, no app venv on the Pi any more — the Pi agent is a single
-  static Go binary and holds no local state.
-- Laptop prerequisites: `ssh`, `scp`, `curl`, `sha256sum`, `python3` (all
-  scripts), plus `mkdosfs`, `parted`, `losetup` for the Layer 1 fixture
-  images (needs local root — expect a `sudo` prompt on your own machine for
-  that step).
-- The Pi needs nothing added — a failing preflight check is a real gap in
-  how the Pi was provisioned (`docs/second-pi-setup.md`), not something to
-  `apt install` past.
+- Fixture building (FAT32 and MBR images, a synthetic `.goo`) and HTTP calls
+  happen locally. Workstation tools: `ssh`, `scp`, `curl`, `sha256sum`,
+  `python3`, plus `mkdosfs`, `parted`, and `losetup` for Layer 1, which asks
+  for your local `sudo` password. `make deps` checks most of these.
+- On the Pi, scripts only use what production already depends on: `losetup`,
+  `mount`, `modprobe`, `dd`, `sha256sum`, `systemctl`. If a preflight check
+  fails on the Pi, that's a provisioning bug. Fix it in `provisioning/` and
+  reflash, don't `apt install` around it.
 
-## The dedicated test rig: `resin1`
+## The test rig: `resin1`
 
-Point every script at a Pi provisioned specifically as a test rig, hostname
-`resin1` — never `resin` (serving the M7 Pro) or any Pi in service. These
-scripts cycle the USB gadget repeatedly and create a real `print_jobs` row +
-`decision_log` entries in the central database. Each script SSHes in, asks
-the Pi its hostname, and makes you type it back before doing anything; don't
-route around that with `--yes` against the wrong host.
+Point these scripts only at `resin1`, a Pi provisioned specifically for
+testing. Never use `resin` or any Pi in service. The scripts cycle the USB
+drive repeatedly and create real job and audit-log rows. Each one asks the
+Pi for its hostname and makes you type it back before doing anything.
 
-Set it up per `docs/second-pi-setup.md` (Pi Zero W, fleet-standard):
+Build it like any other Pi ([docs/pi-provisioning.md](../docs/pi-provisioning.md)):
+
 ```bash
-sudo ./provisioning/provision-sd.sh --device /dev/sdX --image ~/Downloads/raspios-lite.img.xz \
-  --hostname resin1 --password '<pick a password>' \
-  --wifi-ssid 'SiteWifi' --wifi-password '<wifi password>'
+sudo ./provisioning/provision-sd.sh --device /dev/sdX \
+  --image ~/Downloads/<raspios-trixie-armhf-lite>.img.xz \
+  --hostname resin1 --password '<password>' \
+  --wifi-ssid '<site Wi-Fi>' --wifi-password '<Wi-Fi password>'
 ```
-That path is flagged **NOT YET HARDWARE-VERIFIED** in `docs/second-pi-setup.md`
-— bringing up `resin1` this way doubles as its first real verification (see
-`MANUAL-CHECKLIST.md` §3).
 
-You also need, in the central portal (once):
-- a **printer** whose `slug` matches `resin1`'s `PRINTER_SLUG`;
-- a **member** with a linked Slack name, **certified** for that printer;
-- that printer's **API key** (for the central-side assertions in Layer 2 —
-  the agent already has its own copy in `/etc/resin-pi-agent.env`).
+To test against a portal on your workstation instead of production, add
+`--central-url http://<your-LAN-IP>:8080` (see
+[docs/development.md](../docs/development.md#testing-against-a-real-pi)).
 
-Plug `resin1` into whichever printer is free — the Elegoo Saturn 3 is the
-best default for frequent runs (tolerant of rapid disconnect/reconnect).
+Then, once, in that portal:
+
+1. **Approve** `resin1` under **Printers → Pending approval**. Its slug is
+   `resin1`.
+2. **Certify** a test member for it, one whose fob you have and who's on the
+   roster (or on `fake-tinkeraccess`'s roster, locally).
+3. Note `resin1`'s API key, which Layer 2 needs for its portal-side checks.
+   The Pi holds it:
+   `ssh captain@resin1.lan sudo cat /var/lib/resin-pi-agent/creds.env`.
+   Don't use **Rotate key** for this; that would invalidate the Pi's copy.
+
+Plug `resin1` into whichever printer is free. The Elegoo Saturn 3 is the best
+default for frequent runs, since it tolerates rapid disconnect and reconnect.
 Re-run the manual checklist against the M7 Pro periodically.
 
 ## Authentication
 
-Each script opens one multiplexed SSH connection for its whole run (one
-login-password prompt), then uses `sudo -S` — password piped, no pty — for
-anything root. Expect a few sudo-password prompts over a run; `remote_setup`
-in `lib/remote.sh` asks once up front and reuses it.
+Each script opens one multiplexed SSH connection for the whole run (one login
+prompt) and pipes the `sudo` password over `sudo -S` for anything that needs
+root. `lib/remote.sh` asks for it once up front. The Pi's login and `sudo`
+passwords are the same, both set by `--password` at provisioning.
 
 ## The four layers
 
-| Layer | What | Printer attached? | Script |
+| Layer | What | Printer needed? | Script |
 |---|---|---|---|
-| 1 | `usb-refresh.sh`'s `<file>` / `--clear` contract + mount-detection against the real gadget, using disposable scratch images built locally | No | `test-usb-refresh-against-pi.sh` |
-| 2 | The real member flow end-to-end: upload via the agent → central approves → **file actually exposed on the gadget** (byte-checked) → central shows the job → finish → **file actually comes off** | No (verified via loopback mount, not a printer screen) | `test-full-flow-against-pi.sh` |
-| 3 | `resin-pi-agent.service` crash/recovery on real systemd; confirms the gadget is untouched by an agent crash | No | `test-service-resilience-against-pi.sh` |
-| 4 | Everything needing eyes on a printer screen or a physical power cycle/replug | **Yes** | `MANUAL-CHECKLIST.md` |
+| 1 | `usb-refresh.sh`'s load and clear contract against the real gadget, using throwaway images built locally | No | `test-usb-refresh-against-pi.sh` |
+| 2 | The member flow end to end: upload to the portal → fob tap → file on the drive, byte-checked → finish → drive cleared | No (checked by mounting the image) | `test-full-flow-against-pi.sh` |
+| 3 | The agent service crashing and being restarted by systemd, with the USB drive unaffected | No | `test-service-resilience-against-pi.sh` |
+| 4 | Anything that needs eyes on a printer screen or a physical power cut or replug | **Yes** | [`MANUAL-CHECKLIST.md`](MANUAL-CHECKLIST.md) |
 
-Run order 1 → 2 → 3 (quick); Layer 4 after gadget/lifecycle changes and
-periodically regardless.
+Run 1 → 2 → 3 (a few minutes total). Run Layer 4 after any change to the
+gadget, `usb-refresh.sh`, or the job lifecycle, and periodically regardless.
 
 ### Layer 1 — `test-usb-refresh-against-pi.sh`
-Re-validates `usb-refresh.sh` against the real driver: bare-FAT32 vs
-MBR-partitioned mount handling, the regression test for the original bug (a
-mount failure must never orphan the gadget), and the `--clear` path. Fixture
-images are built locally (`mkdosfs`/`parted`/`losetup`, local `sudo` prompt)
-and shipped up via `scp`.
+
+Re-validates `usb-refresh.sh` against the real kernel driver: bare-FAT32 and
+MBR-partitioned images, the guarantee that a failed mount never leaves the
+printer without a drive, and `--clear`.
 
 ```bash
 bash hw-tests/test-usb-refresh-against-pi.sh --host resin1.lan --yes
 ```
-Env override: `SCRIPT_UNDER_TEST` — a local path to a working-tree
-`usb-refresh.sh` to test instead of the one installed on the Pi.
 
-### Layer 2 — `test-full-flow-against-pi.sh` (the important one)
-The direct answer to "does a file actually reach the printer when a member
-uploads it, and actually leave when they're done." It:
+Set `SCRIPT_UNDER_TEST=<path>` to test a working-tree `usb-refresh.sh` instead
+of the one installed on the Pi.
 
-1. checks the agent's page responds and the central `/config` is reachable
-   for the slug;
-2. builds a tiny synthetic `.goo` locally (valid `V3.0` header + a nonzero
-   `print_time`);
-3. uploads it to the **central portal** `/upload` (checklist ticked, as the
-   certified test member's Slack name) — members no longer upload to the Pi;
-4. prompts you to **tap the test member's fob** at the Pi, polls the agent's
-   `/scan` until it reports the staged job, then keeps polling until it
-   reports `load_status:"loaded"` — the tap itself is the release; the agent
-   auto-loads in the background the moment a check comes back allowed+staged,
-   no button, no second request;
-5. asserts the central `/current-job` now shows `hwtest.goo` and parsed its
-   ETA as exact;
-6. unloads the real `/piusb.bin` over SSH, mounts it, and asserts it holds
-   exactly `hwtest.goo`, byte-identical (sha256) to what was uploaded;
-7. `POST`s `/finish` and asserts the gadget is cleared.
+### Layer 2 — `test-full-flow-against-pi.sh`
+
+The direct answer to "does a member's file actually reach the printer, and
+actually leave when they're done":
+
+1. checks the Pi's page responds and the portal knows the printer;
+2. builds a small synthetic `.goo` (valid header, non-zero print time);
+3. uploads it through the portal's `/upload` as the test member;
+4. asks you to **tap the test member's fob** on `resin1`, then waits for the Pi
+   to report the file loaded;
+5. checks the portal shows the job printing, with an exact ETA;
+6. unloads the real drive image over SSH, mounts it, and checks it holds
+   exactly that file, byte for byte;
+7. marks the job finished and checks the drive is cleared.
 
 ```bash
 bash hw-tests/test-full-flow-against-pi.sh \
   --host resin1.lan --central https://portal.tinkermill.org \
-  --slug resin --api-key <printer key> --slack-name 'test.member' --yes
+  --slug resin1 --api-key <resin1's key> --slack-name 'Test Member' --yes
 ```
 
-Leaves one real `print_jobs` row (ended) + `decision_log` entries under the
-test member — expected, and the kind of trail `/admin/log` is meant to show.
+`--slack-name` is whatever the member types on the upload page: their linked
+Slack name, or their full name exactly as TinkerAccess has it. The run leaves
+one finished job and its audit-log entries under the test member. That's
+expected.
 
 ### Layer 3 — `test-service-resilience-against-pi.sh`
-SIGKILLs the real `resin-pi-agent.service` and confirms systemd's
-`Restart=on-failure` brings it back and the upload page answers HTTP again —
-and, the part that matters most, that the **USB gadget never flinches**: the
-printer keeps whatever drive it has regardless of whether the agent or the
-central portal is up. Doesn't reboot the Pi; full boot-recovery is Layer 4.
+
+Kills the agent with `SIGKILL`, confirms systemd (`Restart=always`) brings it
+back and its page answers again, and confirms the **USB drive never drops**:
+the printer keeps its file whether or not the agent or the portal is up. This
+doesn't reboot the Pi; Layer 4 covers that.
 
 ```bash
 bash hw-tests/test-service-resilience-against-pi.sh --host resin1.lan --yes
 ```
 
 ### Layer 4 — `MANUAL-CHECKLIST.md`
-Printer-screen confirmation per model, full print-to-completion, reboot
-recovery, power-cycle resilience, physical USB replug, filename edge cases.
 
-## Before running any of this
+Per-printer screen checks, a full print to completion, reboot and power-cut
+recovery, physical replug, and filename edge cases.
 
-- Run from a normal (non-root) shell on your laptop — only Layer 1's
-  `mkdosfs`/`losetup` step needs local root, and it prompts for `sudo`
-  itself.
-- Layers 1–2 briefly disconnect/reconnect whatever's plugged into the Pi's
-  USB port several times — inherent to `g_mass_storage`. Never run them
-  during a real print anyone relies on (which should only ever be `resin1`).
-- Layer 1 scratch images live under `/home/<user>/hw-test-scratch` on the Pi
-  (real disk, not `/tmp` — a 213MB tmpfs, per `CLAUDE.md`). Cleaned up on
-  exit, including on failure/Ctrl-C.
-- All scripts accept `--host` (default `resin1.lan`) and `--user` (default
+## Before running anything
+
+- Run from a normal, non-root shell. Only Layer 1's image building needs
+  local root, and it asks.
+- Layers 1 and 2 disconnect and reconnect the Pi's USB drive several times.
+  Never run them during a print anyone cares about.
+- Layer 1 keeps scratch images in `~/hw-test-scratch` on the Pi (real disk;
+  the Pi's `/tmp` is a small tmpfs) and removes them on exit, including on
+  failure or Ctrl-C.
+- Every script takes `--host` (default `resin1.lan`) and `--user` (default
   `captain`).

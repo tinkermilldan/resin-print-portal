@@ -1,5 +1,11 @@
 # Resin Printer USB Gadget — Roadmap & Open Questions
 
+> **Archived.** This is the August 2026 planning doc from the original per-Pi
+> Flask app, kept for its research notes — chiefly the sliced-file format
+> findings (`.goo` / `.ctb` / `.pwsz` / `.pp1` print-time fields) and the
+> per-printer folder-browsing behaviour. The architecture it describes has been
+> replaced; see the [README](../../README.md) for how the system works now.
+
 Captured 2026-08-21, after confirming all three printers (M7 Pro, Saturn 3, P1)
 read files successfully from the Pi gadget. See `CLAUDE.md` for the low-level
 USB gadget technical details; this doc is the higher-level product/roadmap

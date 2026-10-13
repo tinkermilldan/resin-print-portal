@@ -46,6 +46,14 @@ test-provision: ## Off-hardware test of the SD-card provisioning + pi-agent inst
 vet: ## go vet
 	go vet ./...
 
+.PHONY: deps
+deps: ## Check for the tools this repo's scripts expect (go/docker/helm/provisioning/hw-tests)
+	bash scripts/check-deps.sh
+
+.PHONY: deps-install
+deps-install: ## Same as `deps`, but offer to install what's missing via the system package manager
+	bash scripts/check-deps.sh --install
+
 .PHONY: tidy
 tidy: ## go mod tidy
 	go mod tidy

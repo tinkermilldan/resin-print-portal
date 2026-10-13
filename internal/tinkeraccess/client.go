@@ -1,6 +1,6 @@
 // Package tinkeraccess talks to the TinkerAccess Rust server's Leptos
 // `get_users` server-function endpoint, which returns the member roster with
-// each member's activation status (A/I/S). See docs/GET_MEMBERS_ENDPOINT.md.
+// each member's activation status (A/I/S). See docs/reference/tinkeraccess-get-users.md.
 package tinkeraccess
 
 import (
@@ -17,7 +17,7 @@ import (
 
 // ErrEndpointNotFound means the server returned 404 for the configured path —
 // the Leptos `#[server]` hash suffix has almost certainly changed. Recover it
-// with RecoverUsersPath or the steps in docs/GET_MEMBERS_ENDPOINT.md.
+// with RecoverUsersPath or the steps in docs/reference/tinkeraccess-get-users.md.
 var ErrEndpointNotFound = errors.New("tinkeraccess: get_users endpoint returned 404 (hash suffix changed?)")
 
 // User is one row from get_users. Name and Code may be null upstream.

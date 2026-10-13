@@ -50,7 +50,7 @@ func (w *Worker) runOnce(ctx context.Context) {
 	if err != nil {
 		if errors.Is(err, tinkeraccess.ErrEndpointNotFound) {
 			w.log.Error("get_users returned 404 — the Leptos hash suffix likely changed; "+
-				"recover it per docs/GET_MEMBERS_ENDPOINT.md (wasm strings grep) and update "+
+				"recover it per docs/reference/tinkeraccess-get-users.md (wasm strings grep) and update "+
 				"TINKERACCESS_GET_USERS_PATH. Keeping the last-known roster.", "err", err)
 		} else {
 			w.log.Error("roster sync failed — keeping the last-known roster", "err", err)

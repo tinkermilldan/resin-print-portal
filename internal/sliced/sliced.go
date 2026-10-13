@@ -1,7 +1,7 @@
 // Package sliced parses print-time, layer count, and target-machine name out of
 // sliced resin print files. It is a Go port of the original
 // printer-upload/sliced_file_info.py; byte offsets were validated there against
-// real sample files (see docs/resin_plans.md). The encrypted-.ctb AES step uses
+// real sample files (see docs/archive/2026-08-flask-era-roadmap.md). The encrypted-.ctb AES step uses
 // the Go standard library rather than the pure-Python fallback that module had.
 package sliced
 

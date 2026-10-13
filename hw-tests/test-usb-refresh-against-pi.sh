@@ -17,7 +17,7 @@
 #
 # What it checks, and why: usb-refresh.sh previously assumed /piusb.bin is
 # always MBR-partitioned. Against a bare-FAT32 image (the layout
-# second-pi-setup.md recommends for a fresh Pi), the mount would fail and
+# provisioning creates on a fresh Pi), the mount would fail and
 # `set -e` would kill the script AFTER it had already unloaded the gadget --
 # permanently orphaning the printer's USB drive until someone noticed by
 # hand. The fix (partition-node detection + an EXIT trap that always
