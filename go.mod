@@ -7,6 +7,7 @@ require (
 	github.com/gorilla/securecookie v1.1.2
 	github.com/jackc/pgx/v5 v5.10.0
 	github.com/pressly/goose/v3 v3.27.3
+	github.com/slack-go/slack v0.30.1
 	go.bug.st/serial v1.8.0
 	golang.org/x/crypto v0.54.0
 	periph.io/x/conn/v3 v3.7.3
